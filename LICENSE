@@ -672,3 +672,207 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <http://www.gnu.org/philosophy/why-not-lgpl.html>.
+
+
+
+-- REM EBIF_DBTYPE=PCTL
+-- REM EBIF_USER=PCTL
+CREATE OR REPLACE PACKAGE pkg_db_utilities IS
+
+    PROCEDURE drop_table      (p_ObjectName IN user_objects.object_name%Type);
+    
+    PROCEDURE drop_sequence   (p_ObjectName IN user_objects.object_name%Type);
+    
+    PROCEDURE drop_package    (p_ObjectName IN user_objects.object_name%Type);
+
+    PROCEDURE drop_view       (p_ObjectName IN user_objects.object_name%Type);
+    
+    PROCEDURE drop_procedure  (p_ObjectName IN user_objects.object_name%Type);
+    
+    PROCEDURE drop_function   (p_ObjectName IN user_objects.object_name%Type);
+    
+END pkg_db_utilities;
+/
+CREATE OR REPLACE PACKAGE BODY pkg_db_utilities IS
+
+    PROCEDURE drop_if_exists (
+        p_ObjectType IN user_objects.object_type%Type, 
+        p_ObjectName IN user_objects.object_name%Type
+    )
+    IS
+        v_object_count  INTEGER := 0;
+    BEGIN
+    
+        SELECT  COUNT(1)
+        INTO    v_object_count
+        FROM    user_objects uo
+        WHERE   uo.object_type = UPPER(p_ObjectType)
+        AND     uo.object_name = UPPER(p_ObjectName);
+        
+        IF v_object_count > 0 THEN       
+            CASE UPPER(p_ObjectType)
+                WHEN 'TABLE' THEN
+                    EXECUTE IMMEDIATE 'DROP ' || UPPER(p_ObjectType) || ' ' || UPPER(p_ObjectName) || ' CASCADE CONSTRAINT';
+                ELSE
+                    EXECUTE IMMEDIATE 'DROP ' || UPPER(p_ObjectType) || ' ' || UPPER(p_ObjectName);
+            END CASE;
+        END IF;
+
+    EXCEPTION        
+        WHEN OTHERS THEN RAISE;
+    END drop_if_exists;
+
+    PROCEDURE drop_table (p_ObjectName IN user_objects.object_name%Type) IS 
+    BEGIN  
+        drop_if_exists('TABLE', p_ObjectName);
+    END drop_table;
+
+    PROCEDURE drop_sequence (p_ObjectName IN user_objects.object_name%Type) IS 
+    BEGIN
+        drop_if_exists('SEQUENCE', p_ObjectName);   
+    END drop_sequence;
+    
+    PROCEDURE drop_package (p_ObjectName IN user_objects.object_name%Type) IS 
+    BEGIN
+        drop_if_exists('PACKAGE', p_ObjectName);   
+    END drop_package;
+    
+    PROCEDURE drop_view (p_ObjectName IN user_objects.object_name%Type) IS
+    BEGIN
+        drop_if_exists('VIEW', p_ObjectName);   
+    END drop_view;
+    
+    PROCEDURE drop_procedure (p_ObjectName IN user_objects.object_name%Type) IS
+    BEGIN
+        drop_if_exists('VIEW', p_ObjectName);   
+    END drop_procedure;
+    
+    PROCEDURE drop_function (p_ObjectName IN user_objects.object_name%Type) IS
+    BEGIN
+        drop_if_exists('FUNCTION', p_ObjectName);   
+    END drop_function;
+    
+END pkg_db_utilities;
+/
+
+-- REM EBIF_DBTYPE=PCTL
+-- REM EBIF_USER=PCTL
+CREATE OR REPLACE PACKAGE pkg_logs IS
+
+    PROCEDURE debug(p_Source IN t_application_logs.source%Type, p_Message IN t_application_logs.message%Type);
+
+    PROCEDURE info(p_Source IN t_application_logs.source%Type, p_Message IN t_application_logs.message%Type);
+
+    PROCEDURE warn(p_Source IN t_application_logs.source%Type, p_Message IN t_application_logs.message%Type);
+
+    PROCEDURE error(p_Source IN t_application_logs.source%Type, p_Message IN t_application_logs.message%Type);
+
+END pkg_logs;
+/
+CREATE OR REPLACE PACKAGE BODY pkg_logs IS
+
+    /* GLOBAL Constants for use in logging */
+    application_loglevel t_application_logs_config.loglevel%type;
+    loglevel_debug       constant number := 1;
+    loglevel_information constant number := 2;
+    loglevel_warning     constant number := 3;
+    loglevel_error       constant number := 4;
+    
+    /* Private Method */
+    /* *
+    * Name    :  WRITE_LOG
+    * Purpose :  Records message in log if gv_loglevel is greater than or equal to the message's p_loglevel
+    *
+    * Usage   :  Called from any procedure wishing to record a message
+    *
+    * Parameter Documentation      :    
+    * p_loglevel - Level of message being logged; 0-Off, 1-DEBUG, 2-Information, 3-Warning, 4-Error
+    * p_source - Source of message
+    * p_message - Message to record
+    *
+    **/    
+    PROCEDURE write_log(
+        p_LogLevel IN t_application_logs.loglevel%Type,
+        p_Source   IN t_application_logs.source%Type, 
+        p_Message  IN t_application_logs.message%Type
+    ) 
+    AS 
+        PRAGMA AUTONOMOUS_TRANSACTION;
+    BEGIN
+    
+        -- Initialise global session variable on first call (Taken from cm_events)
+        IF application_loglevel IS NULL THEN
+            SELECT MIN(lg.loglevel)
+            INTO   application_loglevel
+            FROM   t_application_logs_config lg;
+        END IF;
+        
+        -- Only save if logging level is configured to be greater than or equal to log level of the message
+        IF p_LogLevel >= application_loglevel THEN
+    
+            INSERT INTO t_application_logs (log_id, loglevel, source, message, created_on)
+            VALUES (seq_log_id.NextVal, p_LogLevel, p_Source, p_Message, SYSTIMESTAMP);    
+        
+            COMMIT;
+        END IF;
+        
+    EXCEPTION
+        WHEN OTHERS THEN
+            dbms_output.put_line('Error while writing to log, ' || sqlerrm || ', ' || p_message);
+    
+    END write_log;
+    
+    PROCEDURE debug (
+        p_Source  IN t_application_logs.source%Type, 
+        p_Message IN t_application_logs.message%Type
+    ) 
+    AS       
+    BEGIN
+    
+        write_log(loglevel_debug, p_Source, p_Message);
+    
+    END debug;
+
+    PROCEDURE info(
+        p_Source  IN t_application_logs.source%Type, 
+        p_Message IN t_application_logs.message%Type
+    ) 
+    AS 
+    BEGIN
+    
+        write_log(loglevel_information, p_Source, p_Message);
+
+    END info;
+    
+    PROCEDURE warn(
+        p_Source  IN t_application_logs.source%Type, 
+        p_Message IN t_application_logs.message%Type
+    ) 
+    AS 
+    BEGIN
+    
+        write_log(loglevel_warning, p_Source, p_Message);
+    
+    END warn;    
+
+    PROCEDURE error(
+        p_Source  IN t_application_logs.source%Type, 
+        p_Message IN t_application_logs.message%Type
+    ) 
+    AS 
+    BEGIN
+    
+        write_log(loglevel_error, p_Source, p_Message);
+    
+    END error;    
+    
+END pkg_logs;
+/
+
+
+
+
+
+
+
+
