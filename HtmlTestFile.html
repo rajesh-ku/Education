@@ -6,22 +6,6 @@
   <body>
   
     <h2>Prelude </h2>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <p>
 On July 1st, 2009 I received a phone call from a recruitment agent
 promising to make me “an offer I couldn't refuse”. I had no clue how he
@@ -41,30 +25,12 @@ that and I have been contracted to build a “real-time low-latency
 multi-threaded front-office trading application using WPF/MVVM”
 </p>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <h2>Requirements</h2>
 <p>My new manager was precise, concise and wasted no time in furnishing
 me with a set of requirements. Here they are:
 </p>
 <ul><li>The application needs to be responsive all the time, display trading
 data “very fast”, never hang, freeze, crash or run out of memory.</li></ul>
-
-
-
 
 <p>I have moved desk several
 times trying to hide (the technique I successfully employed before)
@@ -206,7 +172,41 @@ but anyhow...)
 So from MeffedMVVM we are going to borrow ...well MEF and MVVM
 </p>
 
-    
+<h1 class="entry-title">Introduction to Market Risk</h1>
+			
+<div class="entry-content">
+<p>Market risk is the change in the value of financial instruments from fluctuations in the market place where they are traded. This is fairly straight forward when dealing with liquid markets , but can be more difficult to quantify in illiquid markets. This is especially true of assets like real estate.</p>
+<p>The role of bank supervisors is to set in place rules and regulations that codify risk taking behavior – how risk is assessed and measured. This then informs the decision on capital requirements for the different assets financial institutions may hold. Assets are allocated between 2 different types of books :</p>
+<p>&#8211;      The trading book – Traded assets or their hedges are held here</p>
+<p>&#8211;      The Banking book – this is where loans etc are held.</p>
+<p>Market risk is recognized generally in the trading book only and as such there must be documented trading policies, daily mark to market and limit monitoring in place for the trading book.</p>
+<p>It is important the understand the linkage between the different types of risk. A bank making a loan will primarily be exposed to credit risk to the counterparty. However if they require collateral be posted against the loan, then they will be exposed to market risk from the value of the collateral. Or consider a swap agreement where the main risk is the market risk of interest rates, but there is also credit risk coming from any payments that may become due from the swap agreement (the 2008 credit crisis precipitated exactly this problem when Lehman Brothers folded).</p>
+<h2>Risk management</h2>
+<p>The Basel committee have divided the risk management function into 4 tasks :</p>
+<p>&#8211;      Identification – This sounds trivial, but may be more complicated than you initially think. The danger here is that a risk is ignored due to over familiarity or a new risk is ignored due to not understanding it properly. A common example of an over familiar risk is FX risk that is not hedged by corporates, simply because they have lived with it for so long. The credit crisis of 2008 was caused by failing to understand the interplay between credit , correlation and mortgage rates in the complex credit products like CDO’s.</p>
+<p>&#8211;      Assessment – Risk Assessment is carried out through statistical models. The idea is that the statistical model can give some idea of how market moves can lead to unexpected gains and losses. This can then feed into the calculations of capital requirements. Assessment should be both quantitative as well as qualitative to get a true appreciation of the risk profile.</p>
+<p>&#8211;      Monitoring – This is very important as the risk exposure needs to be monitored on a regular basis to account for changing conditions. These conditions could be markets, technology, regulatory environment, competitive landscape etc. The main point is these all cause the risk to change over time. It is also important that monitoring is carried out with trading books with hedges in place to analyze the efficacy of these hedges over time.</p>
+<p>&#8211;      Control / Mitigation – This involves that trading limits are respected and not exceeded. The job of the risk manager is to signal any issues if limits are exceeded. Mitigation also implies that there is a tradeoff between risk and return and that there is an optimal balance that can be achieved. It also implies that market risks can be managed actively.</p>
+<p>Regulators recommend the organization of the risk management function as follows:</p>
+<p>&#8211;      The risk management function is part of a detailed framework which is adopted and set up by the board of directors.</p>
+<p>&#8211;      Risk management is independent of the front office (profit generating / risk taking function). The information and analysis should be independent.</p>
+<p>&#8211;      Risk Management function should send out regular reports to the line managers and communicate any breaches to policy in a timely fashion.</p>
+<p>&#8211;      The risk management process is documented and regularly audited (internally and externally).</p>
+<p>Risk management as a function should be completely separate from front office (the risk taking / trading arm of the bank) and also the back office or the operations side. The risk management function is often referred to as the middle office function.</p>
+<p>The middle office receives information on the outstanding positions from the front office trading system in a timely manner. This information together with independent market data (closing prices, volatilities, correlations etc) must be sourced independently.</p>
+<p>The main task of the middle office is then to produce :</p>
+<p>&#8211;      P&amp;L Attribution – Explanation of the P&amp;L that is being generated by the front office</p>
+<p>&#8211;      Exposure reports detailing exposures vs any limits and showing breaches</p>
+<p>&#8211;      VaR reports showing VaR against limits, highlighting any breaches</p>
+<p>&#8211;      These reports must be agreed by front office and senior management.</p>
+<p>Along with these the risk management function also :</p>
+<p>&#8211;      Prepares market risk management policies</p>
+<p>&#8211;      Calculate provisions that may be needed to reserve against risks</p>
+<p>&#8211;      Implement stress testing and report these</p>
+<p>&#8211;      Have new product guidelines</p>
+<p>&#8211;      Model validation and testing</p>
+<p>&#8211;      Global Hedging strategies (this is rarer)</p>
+<p>&#8211;      Help with calculation of optimal capital and risk budgeting to improve the risk-adjusted return on capital.</p>    
     <!--
 CREATE OR REPLACE PACKAGE pkg_static 
 AS
