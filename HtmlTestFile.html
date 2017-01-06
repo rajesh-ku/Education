@@ -5,6 +5,292 @@
   
   <body>
   
+    <h2>Prelude </h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<p>
+On July 1st, 2009 I received a phone call from a recruitment agent
+promising to make me “an offer I couldn't refuse”. I had no clue how he
+got hold of my name, phone number or place of work but he seemed to
+have assumed a very strong connection between me and the WPF/MVVM that
+he kept repeating slightly raising his voice on the second M. At the
+time I was quite happy tacked away on a “not so easily reachable
+floor” of the middle office IT in some bank. The project I was working
+on was strategic but utterly meaningless which was almost perfect so I
+decided I was not going to be easily budged.
+</p>
+<p>
+Trying to avert his suspicions about my MVVM connections I agreed to
+meet the client where after a quick cross examination my MVVM
+involvement became apparent. The verdict was delivered shortly after
+that and I have been contracted to build a “real-time low-latency
+multi-threaded front-office trading application using WPF/MVVM”
+</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2>Requirements</h2>
+<p>My new manager was precise, concise and wasted no time in furnishing
+me with a set of requirements. Here they are:
+</p>
+<ul><li>The application needs to be responsive all the time, display trading
+data “very fast”, never hang, freeze, crash or run out of memory.</li></ul>
+
+
+
+
+<p>I have moved desk several
+times trying to hide (the technique I successfully employed before)
+but my manager kept finding me every time and chasing me up for an
+update. I had no choice but to get on with my task. So I “googled” and
+apparently “responsiveness and fast” had something to do with
+real-time or low latency (we will look at this in detail in a
+minute),”hang, freeze and crash” is a field of study in complex
+adaptive systems and  I decided to throw in composite UI on top since
+it is a must in modern UI systems.
+</p>
+<p>So my technical requirements were:</p><ul><li>real-time reliability</li><li>adaptability  </li><li>extendibility, scalability and modularity (which is all the same thing
+but sounds better put together in one sentence )</li></ul><h2>Crash Course in Real-Time Systems Development</h2>
+<p>The term “Real-time systems” can refer to a lot of different things.
+One of RT systems properties is that they are aware of the hardware they
+run on and use very low level programming languages to access hardware
+specific calls. They often run directly on the hardware (no operating
+system) or with the help of real-time executives or real-time
+operating systems. Now because they are designed to run on a specific
+hardware they are not easily scalable, portable, etc. That is why general
+design pattern won't apply to real-time systems – they are “too
+generic”.
+</p>
+<p>However the main property of RT systems is that they are designed with the
+“real-time constraint”. That does not mean that they run fast (that
+would be just low latency) but all tasks guaranteed to complete
+execution within defined “real-time constraint”. i.e. I guarantee to
+display any newly arrived data within 50 ms.
+</p>
+<p>So at the heart of each RT system would be a real-time scheduling
+algorithm. The general idea is that all tasks in the system can be
+split into periodic or sporadic. Periodic are well known in advance,
+we know when they start, how long they run for (budget or deadline),
+their priorities. Sporadic tasks can start any time and we can only allocate
+estimated budget (processor time) before they need to be interrupted. Some of the better known algorithms are “priority
+based pre-emptive schedulers” and “earliest deadline first”. Earliest
+deadline first as the name suggests are organizing tasks in order of
+their deadlines (the time when the task must have been executed).
+Priority based algorithms are organizing tasks in order of their
+priorities and interrupt tasks if a task with a higher priority has
+arrived. One of the priority based algorithms is a rate-monotonic
+scheduler. Here is how it works:
+</p>
+<p>Rate-monotonic scheduler puts all periodic tasks into the waiting
+queue. At the start of a new period the scheduler will examine the
+waiting queue and move the selected tasks into the “ready to run”
+queue. At this point the scheduler will perform context switching if
+there are any tasks in the “ready to run queue” with a deadline less
+than a deadline of the task currently being scheduled. Rate-monotonic
+algorithm would accumulate sporadic tasks and run them as a batch on
+designated periodic task since they were considered a lower priority.
+</p>
+<p>As we all know starting from .NET 4.0 Microsoft has released Task
+Parallel Library (TPL) that allows developers to define tasks and
+write custom Task Schedulers to run them. This is a perfect place for
+us to implement our real-time  framework. We will define <code>PeriodicTask</code>
+and <code>SporadicTask</code> classes that will inherit from  <code>System.Threading.Task</code>
+class and we will implement our own <code>PriorityTaskScheduler</code> that will
+inherit from  <code>TaskScheduler</code> class. Since we can buffer the arriving
+market data (with the help of Rx) and dispatch it to the GUI at
+regular intervals we call these tasks periodic. Any user interaction
+(clicking buttons etc.) cannot be predicted and so we call these
+tasks sporadic. We will use Rate-monotonic algorithm as a base with
+the only difference in the way we treat sporadic tasks. My requirement
+is that “GUI needs to be responsive all the time” and that is why I
+consider sporadic tasks a higher priority than any periodic task and
+will run them first.
+</p>
+<h2>Complex Adaptive Systems</h2>
+<p>Although I have seen a lot of research materials on how complex
+systems should adapt to different conditions, monitor resources,
+self-validate and restore components I have not seen a lot of
+implementations of this in the UI world. So I am going to build in
+some of this functionality into the framework and hopefully that would
+be just enough to meet my “never hang, freeze, or crash” requirement.
+</p>
+<p>Since I am using composite or modular UI it is very easy to implement
+some component monitoring functionality. The main shell establishes
+connection with its modules and sends regular heartbeats to make sure
+all parts of the system are responsive. Should any of the modules fail
+to respond we will need to unload this screen from memory and where
+possible reload with a new instance of it. I am going to run each view
+as a new Window class so it can be assigned its own dispatcher. This
+way if a particular view “hangs” the rest of the UI is still “live and
+kicking”. Our main shell “never hangs or freezes” just because we are not
+doing any work on it's dispatcher. Its job is to load system's
+components, monitor the heartbeats and reload other modules/views. So
+because each view has its own dispatcher we can process a lot more
+updates without slowing doing the whole application.
+</p>
+<p>Each view will also be assigned a <code>MaintenanceEngineer</code> class whose job
+is to monitor view's memory usage, send heartbeats and monitor the
+dispatcher queue. It can make a decision whether we are falling behind
+with periodic updates or user interactions (sporadic tasks).
+</p>
+<h2>Composite UI</h2>
+<p>When it comes to composite UI WPF developers are spoilt for choice.
+For my purposes I narrowed my choice down to three frameworks namely Prism,
+MeffedMVVM by Marlon Grech and Cinch by Sacha Barber. I was only
+guided by the principle that using one source is plagiarism but more
+than one is research work. That suits me because I am just going to
+pinch some useful features for my real-time framework.
+</p>
+<h3>Prism</h3>
+<p>The best thing about Prism is ...eh ...well modularity. That is
+achieved with the help of <code>Bootstrapper</code> class that loads modules. I much
+prefer the way Marlon does it with MEF so I think we ll pinch it from
+his MeffedMVVM . Second best thing is … decoupling … achieved with
+<code>EventAggregator</code> class. Again I much prefer the way Sacha does it with
+his  <code>Mediator</code> class which he lifted from Karl Shifflett's work who lifted it
+from Marlon who lifted it from Josh Smith (but not necessarily in that order).
+I am going to make some changes to it as well that we can discuss
+later. There are also  Region Adapters which I am not going to use
+(because it is way over engineered and pretty useless in my opinion)
+and Unity which I am not going to use either because I can use MEF to
+instantiate my objects and I don't want to build long dependency
+chains as Unity does (I have this idea that <code>ViewModels</code> and <code>Services</code>
+should be completely decoupled and only communicate via <code>Mediator</code> where
+they subscribe to topics and broadcast async messages to these topics
+– sort of a GUI enterprise bus, bear with me perhaps I can explain it
+better a bit later). So in fact from Prism we borrow ...er ..nothing
+</p>
+<h3>MeffedMVVM</h3>
+<p>In MeffedMVVM Marlon uses MEF to link <code>Views</code> and <code>ViewModels</code>. I am going
+to use his idea but I will use MEF to resolve <code>ViewModels</code> and <code>Services</code>.
+There is no need for them to reference each other because they both
+have a reference to singleton <code>Mediator</code> class that provides publish /
+subscribe mechanics and chooses the  <code>TaskScheduler</code> to run the tasks.
+There is also strong “one View – one ViewModel” connection that is
+defined at the design time so no need to link them dynamically at the
+run time. Marlon also defines “design time” behaviour for his views so
+each control has some dummy data that can be presented in Blend. I am
+going to use this idea but apply it to the Services rather then the
+Views. So … each Service would have a MockService version of itself
+and with a simple config change you should be able to run the GUI with
+real or mock services. This allows you to run and work on the GUI when the
+Server is down (as they do) or the Server side component is not ready (I don't think this is what Marlon meant by his “design time data”
+but anyhow...)
+So from MeffedMVVM we are going to borrow ...well MEF and MVVM
+</p>
+
+    
+    <!--
+CREATE OR REPLACE PACKAGE pkg_static 
+AS
+	TYPE ref_cursor IS REF CURSOR;
+
+    /* *
+    *  NAME     :  STATIC Table: T_REF_COMPANIES 
+    *  PURPOSE  :  CRUD operations for static table COMPANY
+	* */
+	FUNCTION  get_last_company_id RETURN NUMBER;	
+	PROCEDURE get_companies (p_records out ref_cursor);
+	PROCEDURE save_company (
+		p_CompanyName   IN t_ref_companies.name%Type
+	);
+	PROCEDURE update_company (
+		p_CompanyId     IN t_ref_companies.company_id%Type,
+		p_CompanyName   IN t_ref_companies.name%Type
+	);
+	PROCEDURE delete_company (
+		p_CompanyId     IN t_ref_companies.company_id%Type
+	);
+	
+END;
+/
+CREATE OR REPLACE PACKAGE BODY pkg_static 
+AS
+    /* *
+    *  NAME     :  STATIC Table: Company 
+    *  PURPOSE  :  CRUD operations for static table COMPANY
+	* */
+	FUNCTION get_last_company_id RETURN NUMBER 
+	IS
+        last_company_id  t_ref_companies.company_id%type;
+    BEGIN
+        SELECT seq_company_id.CurrVal 
+		INTO   last_company_id 
+		FROM   dual;
+
+        RETURN last_company_id;
+    END get_last_company_id;
+
+	PROCEDURE get_companies (
+	    p_records out ref_cursor
+	) AS
+	BEGIN
+	    OPEN p_records FOR
+			SELECT  company_id	 AS CompanyId,
+			        name         AS CompanyName
+			FROM    t_ref_companies;  
+	END get_companies;
+	
+	PROCEDURE save_company (
+		p_CompanyName   IN t_ref_companies.name%Type
+	)
+	AS
+	BEGIN
+	    INSERT INTO t_ref_companies (company_id, name)
+		VALUES (seq_company_id.NextVal, p_CompanyName);
+	END save_company;
+
+	PROCEDURE update_company (
+		p_CompanyId     IN t_ref_companies.company_id%Type,
+		p_CompanyName   IN t_ref_companies.name%Type
+	)
+	AS
+	BEGIN
+	    UPDATE t_ref_companies 
+		SET    name          = p_CompanyName
+		WHERE  company_id    = p_CompanyId;
+	END update_company;
+	
+	PROCEDURE delete_company (
+		p_CompanyId     IN t_ref_companies.company_id%Type
+	)
+	AS
+	BEGIN
+	    DELETE t_ref_companies 
+		WHERE  company_id   = p_CompanyId;
+	END delete_company;
+   
+END;
+/
+
+    -->
   
   </body>
 </html>
